@@ -10,6 +10,7 @@ commands:
           name: Destroy environments
           when: on_fail
           command: |
+            aws s3 rm s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
             aws cloudformation delete-stack --stack-name udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
             aws cloudformation delete-stack --stack-name udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
 
@@ -165,7 +166,7 @@ jobs:
 
   configure-infrastructure:
     docker:
-      - image: alpine:latest
+      - image: python:3.7-alpine3.16
     steps:
       - checkout
       - add_ssh_keys:
@@ -205,11 +206,8 @@ jobs:
       - image: circleci/node:13.8.0
     steps:
       - checkout
-      # - restore_cache:
-      #     keys:
-      #       - v1-backend-{{ checksum "" }}
-      #       # fallback to using the latest cache if no exact match is found
-      #       - v1-backend-
+      - restore_cache:
+          keys: [backend-build]
       - run:
           name: Run migrations
           command: |
@@ -234,13 +232,15 @@ jobs:
       - image: alpine:latest
     steps:
       - checkout
-      # - attach_workspace:
-      #     at: project/backend
+      - restore_cache:
+          keys: [frontend-build]
       - run:
           name: Install dependencies
           command: |
             apk add --update ansible
             apk add  --no-cache aws-cli tar gzip npm nodejs curl rsync
+      - attach_workspace:
+         at: ~/
       - run:
           name: Get backend url
           command: |
@@ -264,17 +264,18 @@ jobs:
 
   deploy-backend:
     docker:
-      - image: alpine:latest
+      - image: python:3.7-alpine3.16
     steps:
       - checkout
       - add_ssh_keys:
           fingerprints: ["00:74:2c:52:77:42:9c:19:a8:14:4d:36:29:57:6d:84"]
-      # - attach_workspace:
-      #     at: project/backend
+      - attach_workspace:
+         at: ~/
       - run:
           name: Install dependencies
           command: |
             apk add --update ansible
+            pip install awscli
             apk add  --no-cache aws-cli tar gzip openssh npm nodejs curl rsync
       - run:
           name: Deploy backend
@@ -284,6 +285,8 @@ jobs:
             npm run build
             cd ..
             tar -C backend -czvf artifact.tar.gz .
+            mkdir -p ~/project/.circleci/ansible/roles/deploy/files
+            cp artifact.tar.gz .circleci/ansible/roles/deploy/files
             cd ./.circleci/ansible
             echo "Contents  of the inventory.txt file is -------"
             cat inventory.txt
@@ -293,12 +296,13 @@ jobs:
 
   smoke-test:
     docker:
-      - image: alpine:latest
+      - image: python:3.7-alpine3.16
     steps:
       - checkout
       - run:
           name: Install dependencies
           command: |
+            pip install awscli
             apk add  --no-cache aws-cli npm nodejs tar gzip curl
       - run:
           name: Backend smoke test.
@@ -308,7 +312,7 @@ jobs:
               --filters "Name=tag:project,Values=udapeople" --output text)
             export API_URL="http://${BACKEND_IP}:3030"
             echo "API_URL = ${API_URL}"
-            if curl "${API_URL}/api/status" | grep "ok"
+            if curl ${API_URL}/api/status | grep "ok"
             then
                 return 0
             else
@@ -325,6 +329,8 @@ jobs:
               else
                 return 1
               fi
+      - destroy-environment
+      - revert-migrations
 
 
 workflows:

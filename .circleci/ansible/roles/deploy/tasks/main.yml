@@ -1,27 +1,48 @@
 ---
+  - name: "Update Packages"
+    become: true
+    apt:
+      update_cache: yes
+
+  - name: "Upgrade Packages"
+    become: true
+    apt:
+      upgrade: yes
+
+  - name: "Remove Un-used Dependencies"
+    become: true
+    apt:
+      autoremove: yes
+
+  - name: "Install nodejs and npm"
+    become: true
+    apt:
+      name: [nodejs, npm]
+      state: latest
+      update_cache: yes
+
+  - name: "Install pm2"
+    become: yes
+    npm:
+      name: pm2
+      global: yes
+      production: yes
+      state: latest
+
+  - name: "Create Backend Directory"
+    become: true
+    file:
+      path: /home/ubuntu/backend
+      state: directory
 
   - name: "Extract artifact"
     become: true
     unarchive:
       src: files/artifact.tar.gz
-      dest: /home/ubuntu
+      dest: /home/ubuntu/backend
 
   - name: "Start Project"
     become: true
-    shell: |
-      cd /home/ubuntu
-      npm install
-      pm2 stop default
-      pm2 start nmp -- start
-    environment:
-      NODE_ENV: production
-      ENVIRONMENT: production
-      TYPEORM_CONNECTION: "{{ lookup('env', 'TYPEORM_CONNECTION')}}"
-      TYPEORM_ENTITIES: "{{ lookup('env', 'TYPEORM_ENTITIES')}}"
-      TYPEORM_HOST: "{{ lookup('env', 'TYPEORM_HOST')}}"
-      TYPEORM_PORT: 5432
-      TYPEORM_USERNAME: "{{ lookup('env', 'TYPEORM_USERNAME')}}"
-      TYPEORM_PASSWORD: "{{ lookup('env', 'TYPEORM_PASSWORD')}}"
-      TYPEORM_DATABASE: "{{ lookup('env', 'TYPEORM_DATABASE')}}"
-      TYPEORM_MIGRATIONS: "{{ lookup('env', 'TYPEORM_MIGRATIONS')}}"
-      TYPEORM_MIGRATIONS_DIR: "{{ lookup('env', 'TYPEORM_MIGRATIONS_DIR')}}"
+    command: pm2 start npm --name "backend" -- start
+    args:
+      chdir: /home/ubuntu/backend
