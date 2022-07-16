@@ -1,0 +1,3 @@
+URL01 - https://github.com/Emmanuel-Dominic/udapeople-cicd-aws-ansible
+URL02 - http://udapeople-1cd3b41.s3-website-us-east-1.amazonaws.com
+	https://d27lnx1htmn3w9.cloudfront.net
